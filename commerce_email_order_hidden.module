@@ -13,19 +13,22 @@ function commerce_email_order_hidden_entity_base_field_info_alter(array &$fields
 }
 
 function commerce_email_order_hidden_form_alter(array &$form, FormStateInterface $form_state, string $form_id): void {
-  if (!str_starts_with($form_id, 'commerce_checkout_flow')) {
+  if (!isset($form['contact_information']) && !isset($form['email']) && !str_contains($form_id, 'commerce_checkout')) {
     return;
   }
-  if (!\Drupal::currentUser()->isAnonymous()) {
+  if (isset($form['contact_information']) && \Drupal::currentUser()->isAnonymous() === FALSE) {
     return;
   }
-  $targets = [
-    ['contact_information', 'mail'],
+  $hiddenValue = _commerce_email_order_hidden_generate_dummy_email($form_state);
+  $candidates = [
     ['contact_information', 'email'],
-    ['contact_information', 'contact_information', 'mail'],
+    ['contact_information', 'mail'],
     ['contact_information', 'contact_information', 'email'],
+    ['contact_information', 'contact_information', 'mail'],
+    ['email'],
+    ['mail'],
   ];
-  foreach ($targets as $path) {
+  foreach ($candidates as $path) {
     $ref = &$form;
     $found = TRUE;
     foreach ($path as $key) {
@@ -38,37 +41,71 @@ function commerce_email_order_hidden_form_alter(array &$form, FormStateInterface
     if ($found && is_array($ref)) {
       $ref['#access'] = FALSE;
       $ref['#required'] = FALSE;
-      if (isset($ref['#element_validate'])) {
-        $ref['#element_validate'] = [];
-      }
+      $ref['#element_validate'] = [];
+      $ref['#validated'] = TRUE;
+      $ref['#value'] = $hiddenValue;
+      $ref['#default_value'] = $hiddenValue;
+      $ref['#attributes']['style'] = 'display:none!important';
+      $ref['#type'] = 'hidden';
     }
     unset($ref);
   }
+  if (isset($form['contact_information']) && is_array($form['contact_information'])) {
+    if (isset($form['contact_information']['email'])) {
+      $form['contact_information']['email']['#access'] = FALSE;
+    }
+    if (isset($form['contact_information']['mail'])) {
+      $form['contact_information']['mail']['#access'] = FALSE;
+    }
+    if (isset($form['contact_information']['#title'])) {
+      $form['contact_information']['#title'] = '';
+    }
+  }
   $form['#validate'][] = '_commerce_email_order_hidden_checkout_validate';
+  $form['#after_build'][] = '_commerce_email_order_hidden_after_build';
+}
+
+function _commerce_email_order_hidden_after_build(array $form, FormStateInterface $form_state): array {
+  $hiddenValue = _commerce_email_order_hidden_generate_dummy_email($form_state);
+  foreach (['email', 'mail'] as $key) {
+    if (isset($form['contact_information'][$key])) {
+      $form['contact_information'][$key]['#access'] = FALSE;
+      $form['contact_information'][$key]['#value'] = $hiddenValue;
+    }
+    if (isset($form[$key])) {
+      $form[$key]['#access'] = FALSE;
+      $form[$key]['#value'] = $hiddenValue;
+    }
+  }
+  return $form;
 }
 
 function _commerce_email_order_hidden_checkout_validate(array $form, FormStateInterface $form_state): void {
-  $values = $form_state->getValues();
+  $hiddenValue = _commerce_email_order_hidden_generate_dummy_email($form_state);
   $emailPaths = [
     ['contact_information', 'mail'],
     ['contact_information', 'email'],
+    ['mail'],
+    ['email'],
   ];
   foreach ($emailPaths as $path) {
     $value = $form_state->getValue($path);
-    if (empty($value)) {
-      $dummy = _commerce_email_order_hidden_generate_dummy_email($form_state);
-      $form_state->setValue($path, $dummy);
-    }
-    else {
-      $form_state->setValue($path, trim((string) $value));
+    if (empty($value) || str_contains((string) $value, 'example.invalid')) {
+      $form_state->setValue($path, $hiddenValue);
     }
   }
-  if (empty($form_state->getValue(['contact_information', 'mail'])) && !empty($form_state->getValue(['contact_information', 'email']))) {
-    $form_state->setValue(['contact_information', 'mail'], $form_state->getValue(['contact_information', 'email']));
+  $mail = $form_state->getValue(['contact_information', 'mail']) ?: $form_state->getValue(['contact_information', 'email']) ?: $form_state->getValue('mail') ?: $form_state->getValue('email');
+  $email = $form_state->getValue(['contact_information', 'email']) ?: $mail;
+  $final = !empty($mail) ? $mail : (!empty($email) ? $email : $hiddenValue);
+  $final = trim((string) $final);
+  if (empty($final) || !str_contains($final, '@')) {
+    $final = $hiddenValue;
   }
-  if (!empty($form_state->getValue(['contact_information', 'mail'])) && empty($form_state->getValue(['contact_information', 'email']))) {
-    $form_state->setValue(['contact_information', 'email'], $form_state->getValue(['contact_information', 'mail']));
+  foreach ($emailPaths as $path) {
+    $form_state->setValue($path, $final);
   }
+  $form_state->setValue('mail', $final);
+  $form_state->setValue('email', $final);
 }
 
 function _commerce_email_order_hidden_generate_dummy_email(?FormStateInterface $form_state = NULL): string {
@@ -83,6 +120,8 @@ function _commerce_email_order_hidden_generate_dummy_email(?FormStateInterface $
       ['shipping_information', 'phone'],
       ['contact_information', 'telephone'],
       ['billing_information', 'telephone'],
+      ['phone'],
+      ['telephone'],
     ];
     foreach ($candidates as $path) {
       $v = $form_state->getValue($path);
@@ -109,7 +148,8 @@ function commerce_email_order_hidden_entity_presave(EntityInterface $entity): vo
   if (!$entity instanceof OrderInterface) {
     return;
   }
-  if (!empty($entity->getEmail())) {
+  $email = (string) $entity->getEmail();
+  if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL) && !str_contains($email, 'example.invalid')) {
     return;
   }
   $dummy = _commerce_email_order_hidden_generate_dummy_email();
