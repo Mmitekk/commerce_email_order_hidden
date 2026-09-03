@@ -1,0 +1,127 @@
+<?php
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\commerce_order\Entity\OrderInterface;
+
+function commerce_email_order_hidden_entity_base_field_info_alter(array &$fields, EntityTypeInterface $entity_type): void {
+  if ($entity_type->id() === 'commerce_order' && isset($fields['mail'])) {
+    $fields['mail']->setRequired(FALSE);
+    $fields['mail']->setConstraints([]);
+  }
+}
+
+function commerce_email_order_hidden_form_alter(array &$form, FormStateInterface $form_state, string $form_id): void {
+  if (!str_starts_with($form_id, 'commerce_checkout_flow')) {
+    return;
+  }
+  if (!\Drupal::currentUser()->isAnonymous()) {
+    return;
+  }
+  $targets = [
+    ['contact_information', 'mail'],
+    ['contact_information', 'email'],
+    ['contact_information', 'contact_information', 'mail'],
+    ['contact_information', 'contact_information', 'email'],
+  ];
+  foreach ($targets as $path) {
+    $ref = &$form;
+    $found = TRUE;
+    foreach ($path as $key) {
+      if (!isset($ref[$key])) {
+        $found = FALSE;
+        break;
+      }
+      $ref = &$ref[$key];
+    }
+    if ($found && is_array($ref)) {
+      $ref['#access'] = FALSE;
+      $ref['#required'] = FALSE;
+      if (isset($ref['#element_validate'])) {
+        $ref['#element_validate'] = [];
+      }
+    }
+    unset($ref);
+  }
+  $form['#validate'][] = '_commerce_email_order_hidden_checkout_validate';
+}
+
+function _commerce_email_order_hidden_checkout_validate(array $form, FormStateInterface $form_state): void {
+  $values = $form_state->getValues();
+  $emailPaths = [
+    ['contact_information', 'mail'],
+    ['contact_information', 'email'],
+  ];
+  foreach ($emailPaths as $path) {
+    $value = $form_state->getValue($path);
+    if (empty($value)) {
+      $dummy = _commerce_email_order_hidden_generate_dummy_email($form_state);
+      $form_state->setValue($path, $dummy);
+    }
+    else {
+      $form_state->setValue($path, trim((string) $value));
+    }
+  }
+  if (empty($form_state->getValue(['contact_information', 'mail'])) && !empty($form_state->getValue(['contact_information', 'email']))) {
+    $form_state->setValue(['contact_information', 'mail'], $form_state->getValue(['contact_information', 'email']));
+  }
+  if (!empty($form_state->getValue(['contact_information', 'mail'])) && empty($form_state->getValue(['contact_information', 'email']))) {
+    $form_state->setValue(['contact_information', 'email'], $form_state->getValue(['contact_information', 'mail']));
+  }
+}
+
+function _commerce_email_order_hidden_generate_dummy_email(?FormStateInterface $form_state = NULL): string {
+  $config = \Drupal::config('commerce_email_order_hidden.settings');
+  $domain = $config->get('dummy_domain') ?: 'example.invalid';
+  $prefix = $config->get('dummy_prefix') ?: 'guest';
+  $phone = NULL;
+  if ($form_state) {
+    $candidates = [
+      ['contact_information', 'phone'],
+      ['billing_information', 'phone'],
+      ['shipping_information', 'phone'],
+      ['contact_information', 'telephone'],
+      ['billing_information', 'telephone'],
+    ];
+    foreach ($candidates as $path) {
+      $v = $form_state->getValue($path);
+      if (!empty($v) && is_string($v)) {
+        $phone = $v;
+        break;
+      }
+      if (is_array($v) && !empty($v['value'])) {
+        $phone = $v['value'];
+        break;
+      }
+    }
+  }
+  if (!empty($phone)) {
+    $phone = preg_replace('/\D+/', '', $phone);
+    if (strlen($phone) >= 7) {
+      return $prefix . '+' . $phone . '@' . $domain;
+    }
+  }
+  return $prefix . '+' . time() . bin2hex(random_bytes(3)) . '@' . $domain;
+}
+
+function commerce_email_order_hidden_entity_presave(EntityInterface $entity): void {
+  if (!$entity instanceof OrderInterface) {
+    return;
+  }
+  if (!empty($entity->getEmail())) {
+    return;
+  }
+  $dummy = _commerce_email_order_hidden_generate_dummy_email();
+  $profile = $entity->getBillingProfile();
+  if ($profile && $profile->hasField('field_phone') && !$profile->get('field_phone')->isEmpty()) {
+    $phone = preg_replace('/\D+/', '', (string) $profile->get('field_phone')->value);
+    if (strlen($phone) >= 7) {
+      $config = \Drupal::config('commerce_email_order_hidden.settings');
+      $domain = $config->get('dummy_domain') ?: 'example.invalid';
+      $prefix = $config->get('dummy_prefix') ?: 'guest';
+      $dummy = $prefix . '+' . $phone . '@' . $domain;
+    }
+  }
+  $entity->setEmail($dummy);
+}

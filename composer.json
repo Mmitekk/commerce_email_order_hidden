@@ -1,0 +1,24 @@
+{
+  "name": "mmitekk/commerce_email_order_hidden",
+  "description": "Hides email field for guest checkout in Drupal Commerce. Auto-generates dummy email.",
+  "type": "drupal-module",
+  "license": "GPL-2.0-or-later",
+  "keywords": ["drupal", "commerce", "checkout", "email", "guest"],
+  "authors": [
+    {
+      "name": "Mmitekk",
+      "email": "mitish.n@yandex.ru",
+      "homepage": "https://github.com/Mmitekk"
+    }
+  ],
+  "require": {
+    "drupal/core": "^10 || ^11",
+    "drupal/commerce": "^2.0"
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true,
+  "support": {
+    "issues": "https://github.com/Mmitekk/commerce_email_order_hidden/issues",
+    "source": "https://github.com/Mmitekk/commerce_email_order_hidden"
+  }
+}

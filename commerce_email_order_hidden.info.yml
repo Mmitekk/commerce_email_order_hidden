@@ -1,0 +1,8 @@
+name: Commerce Email Order Hidden
+type: module
+description: Hides email field on Commerce checkout for guest/anonymous users and auto-generates dummy email.
+core_version_requirement: ^10 || ^11
+package: Commerce
+dependencies:
+  - drupal:commerce_order
+  - drupal:commerce_checkout

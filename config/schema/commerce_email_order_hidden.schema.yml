@@ -1,0 +1,13 @@
+commerce_email_order_hidden.settings:
+  type: config_object
+  label: 'Commerce Email Order Hidden settings'
+  mapping:
+    dummy_domain:
+      type: string
+      label: 'Dummy email domain'
+    dummy_prefix:
+      type: string
+      label: 'Dummy email prefix'
+    hide_for_anonymous_only:
+      type: boolean
+      label: 'Hide only for anonymous'

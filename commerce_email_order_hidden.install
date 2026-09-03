@@ -1,0 +1,9 @@
+<?php
+
+function commerce_email_order_hidden_install(): void {
+  \Drupal::configFactory()->getEditable('commerce_email_order_hidden.settings')
+    ->set('dummy_domain', 'example.invalid')
+    ->set('dummy_prefix', 'guest')
+    ->set('hide_for_anonymous_only', TRUE)
+    ->save();
+}
