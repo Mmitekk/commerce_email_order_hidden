@@ -13,8 +13,12 @@ function commerce_email_order_hidden_entity_base_field_info_alter(array &$fields
 }
 
 function commerce_email_order_hidden_page_attachments(array &$attachments): void {
-  if (\Drupal::currentUser()->isAnonymous()) {
-    $attachments['#attached']['library'][] = 'commerce_email_order_hidden/hide_email';
+  $attachments['#attached']['library'][] = 'commerce_email_order_hidden/hide_email';
+}
+
+function commerce_email_order_hidden_preprocess_commerce_checkout_form(array &$vars): void {
+  if (\Drupal::currentUser()->isAnonymous() && isset($vars['form']['contact_information'])) {
+    $vars['form']['contact_information']['#access'] = FALSE;
   }
 }
 
@@ -80,6 +84,17 @@ function commerce_email_order_hidden_form_alter(array &$form, FormStateInterface
   }
   if (\Drupal::currentUser()->isAnonymous() && isset($form['contact_information'])) {
     $form['contact_information']['#access'] = FALSE;
+  }
+  if (\Drupal::currentUser()->isAnonymous()) {
+    foreach (['review', 'review_pane', 'contact_information_review'] as $rk) {
+      if (isset($form[$rk]) && is_array($form[$rk])) {
+        _commerce_email_order_hidden_hide_recursive($form[$rk]);
+        if (isset($form[$rk]['contact_information'])) $form[$rk]['contact_information']['#access'] = FALSE;
+      }
+    }
+    if (isset($form['#title']) && str_contains((string) $form['#title'], 'Контактная информация')) {
+      $form['#access'] = FALSE;
+    }
   }
   $form['#validate'][] = '_commerce_email_order_hidden_checkout_validate';
   $form['#after_build'][] = '_commerce_email_order_hidden_after_build';
