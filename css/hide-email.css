@@ -14,3 +14,8 @@ input[name="contact_information[mail]"],
 .field--name-mail{
   display:none !important;
 }
+.checkout-review-contact-information,
+.pane-contact_information--review,
+.layout-region-checkout-review .checkout-pane-contact-information{
+  display:none !important;
+}

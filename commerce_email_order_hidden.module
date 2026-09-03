@@ -93,6 +93,14 @@ function _commerce_email_order_hidden_hide_recursive(array &$element): void {
         }
       }
     }
+    foreach (['#plain_text', '#markup', '#text'] as $tk) {
+      if (isset($value[$tk]) && is_string($value[$tk]) && str_contains($value[$tk], '@example.invalid')) {
+        if (\Drupal::currentUser()->isAnonymous()) {
+          $value['#access'] = FALSE;
+          $value[$tk] = '';
+        }
+      }
+    }
     if (is_array($value)) {
       _commerce_email_order_hidden_hide_recursive($value);
     }
@@ -111,6 +119,7 @@ function _commerce_email_order_hidden_after_build(array $form, FormStateInterfac
       $form[$key]['#value'] = $hiddenValue;
     }
   }
+  _commerce_email_order_hidden_hide_recursive($form);
   return $form;
 }
 
