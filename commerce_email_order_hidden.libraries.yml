@@ -1,0 +1,10 @@
+hide_email:
+  version: 1.x
+  css:
+    theme:
+      css/hide-email.css: {}
+  js:
+    js/hide-email.js: {}
+  dependencies:
+    - core/drupal
+    - core/jquery

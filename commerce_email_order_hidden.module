@@ -12,7 +12,17 @@ function commerce_email_order_hidden_entity_base_field_info_alter(array &$fields
   }
 }
 
+function commerce_email_order_hidden_page_attachments(array &$attachments): void {
+  if (\Drupal::currentUser()->isAnonymous()) {
+    $attachments['#attached']['library'][] = 'commerce_email_order_hidden/hide_email';
+  }
+}
+
 function commerce_email_order_hidden_form_alter(array &$form, FormStateInterface $form_state, string $form_id): void {
+  if (\Drupal::currentUser()->isAnonymous()) {
+    $form['#attached']['library'][] = 'commerce_email_order_hidden/hide_email';
+  }
+  _commerce_email_order_hidden_hide_recursive($form);
   if (!isset($form['contact_information']) && !isset($form['email']) && !str_contains($form_id, 'commerce_checkout')) {
     return;
   }
@@ -63,6 +73,30 @@ function commerce_email_order_hidden_form_alter(array &$form, FormStateInterface
   }
   $form['#validate'][] = '_commerce_email_order_hidden_checkout_validate';
   $form['#after_build'][] = '_commerce_email_order_hidden_after_build';
+  $form['#attached']['library'][] = 'commerce_email_order_hidden/hide_email';
+}
+
+function _commerce_email_order_hidden_hide_recursive(array &$element): void {
+  foreach ($element as $key => &$value) {
+    if (!is_array($value) || str_starts_with((string) $key, '#')) {
+      continue;
+    }
+    if (isset($value['#type']) && $value['#type'] === 'email') {
+      $title = (string) ($value['#title'] ?? '');
+      if ($title === 'Email' || $title === 'E-mail' || $key === 'email' || $key === 'mail') {
+        if (\Drupal::currentUser()->isAnonymous()) {
+          $value['#access'] = FALSE;
+          $value['#required'] = FALSE;
+          $value['#type'] = 'hidden';
+          $value['#value'] = _commerce_email_order_hidden_generate_dummy_email();
+          $value['#default_value'] = $value['#value'];
+        }
+      }
+    }
+    if (is_array($value)) {
+      _commerce_email_order_hidden_hide_recursive($value);
+    }
+  }
 }
 
 function _commerce_email_order_hidden_after_build(array $form, FormStateInterface $form_state): array {

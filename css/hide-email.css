@@ -1,0 +1,16 @@
+.checkout-pane-contact-information,
+#edit-contact-information-email,
+#edit-contact-information-mail,
+input[name="contact_information[email]"],
+input[name="contact_information[mail]"],
+.form-item-contact-information-email,
+.form-item-contact-information-mail,
+[data-drupal-selector="edit-contact-information-email"],
+[data-drupal-selector="edit-contact-information-mail"]{
+  display:none !important;
+}
+.checkout-pane-contact-information .pane-title,
+#edit-contact-information--wrapper legend,
+.field--name-mail{
+  display:none !important;
+}
