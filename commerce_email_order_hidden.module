@@ -70,6 +70,16 @@ function commerce_email_order_hidden_form_alter(array &$form, FormStateInterface
     if (isset($form['contact_information']['#title'])) {
       $form['contact_information']['#title'] = '';
     }
+    if (\Drupal::currentUser()->isAnonymous()) {
+      $keys = array_filter(array_keys($form['contact_information']), fn($k) => !str_starts_with($k, '#'));
+      $onlyEmail = empty($keys) || (count($keys) === 1 && in_array($keys[0], ['email', 'mail'])) || (count($keys) === 2 && in_array('email', $keys) && in_array('mail', $keys));
+      if ($onlyEmail || !str_contains($form_id, 'commerce_checkout') === FALSE) {
+        $form['contact_information']['#access'] = FALSE;
+      }
+    }
+  }
+  if (\Drupal::currentUser()->isAnonymous() && isset($form['contact_information'])) {
+    $form['contact_information']['#access'] = FALSE;
   }
   $form['#validate'][] = '_commerce_email_order_hidden_checkout_validate';
   $form['#after_build'][] = '_commerce_email_order_hidden_after_build';

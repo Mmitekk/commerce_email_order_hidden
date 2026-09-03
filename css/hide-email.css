@@ -16,6 +16,12 @@ input[name="contact_information[mail]"],
 }
 .checkout-review-contact-information,
 .pane-contact_information--review,
-.layout-region-checkout-review .checkout-pane-contact-information{
+.layout-region-checkout-review .checkout-pane-contact-information,
+.checkout-pane-review-contact-information,
+div:has(> strong:contains("Контактная информация")):has(a:contains("Редактировать")){
+  display:none !important;
+}
+h3:has(+ div:contains("@example.invalid")),
+strong:has(+ a:contains("Редактировать")):contains("Контактная информация"){
   display:none !important;
 }
